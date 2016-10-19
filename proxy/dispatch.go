@@ -27,7 +27,7 @@ import (
 func (session *Session) dispatch(data []byte) (err error) {
 	cmd := data[0]
 	data = data[1:]
-
+	cluster.DoMertics(3)
 	defer func() {
 		flush_error := session.fc.Flush()
 		if err == nil {
@@ -63,6 +63,7 @@ func (session *Session) dispatch(data []byte) (err error) {
 		log.Warnf(msg)
 		err = mysql.NewDefaultError(mysql.ER_UNKNOWN_ERROR, msg)
 	}
+	log.Warn("")
 
 	return
 }

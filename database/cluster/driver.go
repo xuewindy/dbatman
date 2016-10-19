@@ -25,7 +25,6 @@ type Cluster struct {
 	DBName     string
 	version    int
 }
-
 type CrashDb struct {
 	crashNum   int
 	masterNode *mysql.DB
@@ -47,7 +46,6 @@ func (c *Cluster) Master() (*mysql.DB, error) {
 
 		}
 	}
-
 	return db, nil
 }
 
@@ -211,6 +209,7 @@ func Init(cfg *config.Conf) error {
 }
 
 func monitor() {
+	// report()
 	for {
 		timeout := time.After(time.Second * 10)
 		select {
@@ -220,6 +219,16 @@ func monitor() {
 			probe()
 		}
 	}
+}
+func report() {
+
+	r := Reproter{name: "dbatman"}
+	go func() {
+		reportAddr := cfgHandler.GetConfig().Global.ReportAddr
+		r.Reporting(reportAddr)
+
+	}()
+
 }
 
 func probe() error {

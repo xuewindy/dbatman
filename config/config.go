@@ -29,6 +29,8 @@ type ProxyConfig struct {
 type GlobalConfig struct {
 	Port              int
 	ManagePort        int      `yaml:"manage_port"`
+	ReportEanble      bool     `ymal:"report_enable"`
+	ReportAddr        string   `yml:"report_ddr"`
 	MaxConnections    int      `yaml:"max_connections"`
 	LogFilename       string   `yaml:"log_filename"`
 	LogLevel          int      `yaml:"log_level"`
@@ -289,6 +291,8 @@ func getDefaultProxyConfig() *ProxyConfig {
 		Global: &GlobalConfig{
 			Port:              3306,
 			ManagePort:        3307,
+			ReportEanble:      false,
+			ReportAddr:        "127.0.0.1:12345",
 			MaxConnections:    2000,
 			LogLevel:          1,
 			LogFilename:       "./log/dbatman.log",

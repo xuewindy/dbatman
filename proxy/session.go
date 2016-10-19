@@ -56,7 +56,7 @@ var errSessionQuit error = errors.New("session closed by client")
 
 func (s *Server) newSession(conn net.Conn) *Session {
 	session := new(Session)
-	id := <-sessionChan
+	id := s.GetSessionId()
 	session.server = s
 	session.config = s.cfg.GetConfig()
 	session.salt, _ = RandomBuf(20)

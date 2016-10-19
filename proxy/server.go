@@ -43,6 +43,10 @@ type User struct {
 	user   string
 	iplist map[string]*Ip
 }
+type SessionId struct {
+	id int64
+	mu *sync.Mutex
+}
 type Server struct {
 	cfg *config.Conf
 
@@ -54,6 +58,7 @@ type Server struct {
 	mu *sync.Mutex
 	// users        map[string]*User
 	//qps base on fingerprint
+	session      *SessionId
 	fingerprints map[string]*LimitReqNode
 	//qps base on server
 	qpsOnServer *LimitReqNode
@@ -63,6 +68,15 @@ type Server struct {
 	wg          sync.WaitGroup
 }
 
+func (s *Server) GetSessionId() int64 {
+	var id int64
+	s.session.mu.Lock()
+	s.session.id += 1
+	id := s.session.id
+	s.session.mu.Unlock()
+	return id
+
+}
 func NewServer(cfg *config.Conf) (*Server, error) {
 	s := new(Server)
 
@@ -104,13 +118,13 @@ func (s *Server) Serve() error {
 	s.running = true
 	var sessionId int64 = 0
 	for s.running {
-		select {
-		case sessionChan <- sessionId:
-			//do nothing
-		default:
-			//warnning!
-			log.Warnf("TASK_CHANNEL is full!")
-		}
+		// select {
+		// case sessionChan <- sessionId:
+		// 	//do nothing
+		// default:
+		// 	//warnning!
+		// 	log.Warnf("TASK_CHANNEL is full!")
+		// }
 
 		conn, err := s.Accept()
 		if err != nil {
