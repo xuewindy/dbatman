@@ -26,6 +26,7 @@ var (
 	logLevel   *int    = flag.Int("loglevel", 0, "0-debug| 1-notice|2-warn|3-fatal")
 	logFile    *string = flag.String("logfile", "./proxy.log", "go mysql proxy logfile")
 	gcLevel    *string = flag.String("gclevel", "500", "go gc level")
+	debug              = true
 )
 
 func substr(s string, pos, length int) string {
@@ -51,8 +52,8 @@ func main() {
 	runtime.SetBlockProfileRate(1)       // for debug set profile on
 	os.Setenv("GOGC", *gcLevel)          //set the GOGC level default = 500
 
-	//this whill set the
-	if false {
+	//this will set the log output as file i/o rather than
+	if !debug {
 		log.SetOutputByName(*logFile) //set the log
 	}
 
