@@ -43,11 +43,13 @@ func getCurrentDir() string {
 
 func main() {
 
-	runtime.GOMAXPROCS(runtime.NumCPU())
-	runtime.SetBlockProfileRate(1)
-	os.Setenv("GOGC", "100")
+	// runtime  and env config
+	runtime.GOMAXPROCS(runtime.NumCPU()) // set max proces
+	runtime.SetBlockProfileRate(1)       // for debug set profile on
+	os.Setenv("GOGC", gcLevel)
 	log.SetOutputByName(*logFile)
 	flag.Parse() //parse tue input argument
+
 	println(*logFile)
 	println(*configFile)
 
