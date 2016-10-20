@@ -102,6 +102,7 @@ func (session *Session) Run() error {
 			}
 
 			log.Warnf("sessionId %d:dispatch error: %s", session.sessionId, err.Error())
+			// session.fc.WriteError(err)
 			return err
 		}
 
