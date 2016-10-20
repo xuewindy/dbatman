@@ -19,10 +19,6 @@ import (
 var startNum = 0
 var closeNum = 0
 
-// const defaultSessionIDChannelSize = 4096
-
-// var sessionChan = make(chan int64, defaultSessionIDChannelSize)
-
 type LimitReqNode struct {
 	excess     int64
 	last       int64
@@ -112,13 +108,6 @@ func (s *Server) Serve() error {
 	s.running = true
 	// var sessionId int64 = 0
 	for s.running {
-		// select {
-		// case sessionChan <- sessionId:
-		// 	//do nothing
-		// default:
-		// 	//warnning!
-		// 	log.Warnf("TASK_CHANNEL is full!")
-		// }
 
 		conn, err := s.Accept()
 		if err != nil {
@@ -172,12 +161,8 @@ func (s *Server) Accept() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	// tc.SetKeepAlive(true)
-	// tc.SetKeepAlivePeriod(3 * time.Minute)
-
 	s.wg.Add(1)
 	startNum += 1
-	// log.Info("wait group add 1 total is :", startNum)
 
 	return conn, nil
 }

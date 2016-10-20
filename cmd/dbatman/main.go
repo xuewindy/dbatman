@@ -22,9 +22,9 @@ import (
 var (
 	// the default prxoy.yml dir is ./proxy.yml
 	// the default proxy.log dir is ./proxy.log
-	configFile *string = flag.String("config", getCurrentDir()+"/proxy.yml", "go mysql proxy config file")
+	configFile *string = flag.String("config", "./proxy.yml", "go mysql proxy config file")
 	logLevel   *int    = flag.Int("loglevel", 0, "0-debug| 1-notice|2-warn|3-fatal")
-	logFile    *string = flag.String("logfile", getCurrentDir()+"/proxy.log", "go mysql proxy logfile")
+	logFile    *string = flag.String("logfile", "./proxy.log", "go mysql proxy logfile")
 	gcLevel    *string = flag.String("gclevel", "500", "go gc level")
 )
 
@@ -50,6 +50,8 @@ func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU()) // set max proces
 	runtime.SetBlockProfileRate(1)       // for debug set profile on
 	os.Setenv("GOGC", *gcLevel)          //set the GOGC level default = 500
+
+	//this whill set the
 	if false {
 		log.SetOutputByName(*logFile) //set the log
 	}
