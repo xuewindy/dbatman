@@ -27,7 +27,7 @@ var (
 
 func init() {
 
-	metricsClient = metrics.NewDefaultMetricsClient("toutiao.service.log", true)
+	metricsClient = metrics.NewDefaultMetricsClient("toutiao.database.log", true)
 	fmt.Fprint(os.Stdout, "Log metrics: toutiao.service.Dbatmanlog."+".throughput")
 	metricsClient.DefineCounter("dbatman.count.go", "")
 	metricsClient.DefineStore("dbatman.store", "")
@@ -43,8 +43,6 @@ func DoMertics(logLevel int) {
 	}
 	if logLevel == 3 {
 		metricsClient.EmitCounter("dbatman.count.go", 1, "", metricsTagInfo)
-		fmt.Fprint(os.Stdout, "send out a Info metrics ")
-
 	} else if logLevel == 4 { // warning
 		metricsClient.EmitCounter("dbatman.count.go", 1, "", metricsTagWarn)
 	} else if logLevel == 5 { // error

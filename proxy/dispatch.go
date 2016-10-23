@@ -63,7 +63,6 @@ func (session *Session) dispatch(data []byte) (err error) {
 		log.Warnf(msg)
 		err = mysql.NewDefaultError(mysql.ER_UNKNOWN_ERROR, msg)
 	}
-	log.Warn("")
 
 	return
 }
