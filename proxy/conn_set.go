@@ -40,17 +40,26 @@ func (c *Session) handleSet(stmt *parser.Set, sql string) error {
 
 func (c *Session) clearAutoCommitTx() {
 	// clear the AUTOCOMMIT status
-	if _, err := c.bc.tx.Exec("set autocommit = 1"); err != nil {
-		log.Warnf("session id :%d,clear autocommit errr", c.sessionId, err)
-		//don;t need to put conn back
+	var err error
+	if c.bc == nil || c.bc.tx == nil {
+		log.Warnf("sessionid %d : clear autcomit err,for nil pointer", c.sessionId)
 		return
 	}
-	c.fc.XORStatus(uint16(StatusInAutocommit))
-	//clear the backend conn's Tx status;
-	//put conn back to free conn
-	if err := c.bc.rollback(c.isAutoCommit()); err != nil {
-		log.Warnf("session %d clear autocommit err:%s: ", c.sessionId, err.Error())
+	err = c.handleClearAutoCommit()
+	if err != nil {
+		log.Warnf("session id :%d,clear autocommit err for %s", c.sessionId, err)
 	}
+
+	// _, err = c.bc.tx.Exec("set autocommit = 1")
+	// don;t need to put conn back
+	// if err != nil {
+	// log.Warnf("session id :%d,clear autocommit err for %s", c.sessionId, err)
+	// }
+	//put back the conn
+	// c.bc.tx.PutConn(err)
+	// c.bc.tx = nil
+
+	c.fc.XORStatus(uint16(StatusInAutocommit))
 	c.fc.AndStatus(^uint16(StatusInTrans))
 	c.autoCommit = 0
 }
@@ -89,6 +98,8 @@ func (c *Session) handleSetAutoCommit(val parser.IExpr) error {
 			err := c.bc.begin(c)
 			if err != nil {
 				log.Debug(err)
+				c.fc.XORStatus(uint16(StatusInAutocommit))
+				return nil
 			}
 			c.fc.XORStatus(uint16(StatusInTrans))
 			c.autoCommit = 2 // indicate 1 -> zero

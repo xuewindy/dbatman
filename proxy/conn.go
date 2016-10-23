@@ -69,6 +69,21 @@ func (bc *SqlConn) rollback(inAutoCommit bool) error {
 	return nil
 }
 
+func (bc *SqlConn) clearAutoCommit() error {
+	if bc.tx == nil {
+		return errors.New("unexpect clearAutoCommit")
+	}
+
+	defer func() {
+		bc.tx = nil
+	}()
+
+	if err := bc.tx.ClearAutoCommit(); err != nil {
+		return err
+	}
+
+	return nil
+}
 func (session *Session) Executor(isread bool) mysql.Executor {
 
 	// TODO set autocommit

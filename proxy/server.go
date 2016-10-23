@@ -113,16 +113,6 @@ func (s *Server) Serve() error {
 	s.running = true
 	// var sessionId int64 = 0
 	for s.running {
-<<<<<<< HEAD
-		// select {
-		// case sessionChan <- sessionId:
-		// 	//do nothing
-		// default:
-		// 	//warnning!
-		// 	log.Warnf("TASK_CHANNEL is full!")
-		// }
-=======
->>>>>>> d14a3c5c8b209605a2988fba9196b97edd7a9560
 
 		conn, err := s.Accept()
 		if err != nil {

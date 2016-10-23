@@ -1,6 +1,10 @@
 package proxy
 
-import . "github.com/bytedance/dbatman/database/mysql"
+import (
+	"errors"
+
+	. "github.com/bytedance/dbatman/database/mysql"
+)
 
 func (c *Session) isInTransaction() bool {
 	return c.fc.Status()&uint16(StatusInTrans) > 0
@@ -49,6 +53,22 @@ func (c *Session) handleCommit() (err error) {
 	}
 }
 
+func (c *Session) handleClearAutoCommit() error {
+	if !c.isInTransaction() {
+		// return c.fc.WriteOK(nil)
+		return errors.New("autocommit status err,not in transaction status")
+
+	}
+	if c.isAutoCommit() {
+		return errors.New("autocommit status err,not in autocommit status")
+
+	}
+	if err := c.bc.clearAutoCommit(); err != nil {
+		// return c.handleMySQLError(err)
+		return err
+	}
+	return nil
+}
 func (c *Session) handleRollback() (err error) {
 	if !c.isInTransaction() {
 		return c.fc.WriteOK(nil)

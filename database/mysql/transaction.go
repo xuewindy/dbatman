@@ -32,3 +32,12 @@ func (tx *mysqlTx) Rollback() (err error) {
 	//tx.mc = nil
 	return
 }
+
+func (tx *mysqlTx) ClearAutoCommit() (err error) {
+	if tx.mc == nil || tx.mc.netConn == nil {
+		return ErrInvalidConn
+	}
+	err = tx.mc.exec("set autocommit = 1")
+	//tx.mc = nil
+	return
+}
