@@ -360,9 +360,13 @@ func makeCluster(clusterName string, clusterCfg *config.ClusterConfig) (*Cluster
 		return nil, err
 	}
 	cluster.masterNode = db
+	db.BlockNum = 0
+	cluster.masterNode.DbName = master.DBName
 
 	for _, slave := range clusterCfg.GetSlaveNodes() {
 		db, err := openDBFromNodeCfg(slave)
+		db.BlockNum = 0
+		db.DbName = slave.DBName
 		if err != nil {
 			return nil, err
 		}

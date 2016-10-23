@@ -226,6 +226,10 @@ var ErrNoRows = errors.New("sql: no rows in result set")
 type DB struct {
 	driver driver.Driver
 	dsn    string
+
+	BlockNum int64
+
+	DbName string
 	// numClosed is an atomic counter which represents a total number of
 	// closed connections. Stmt.openStmt checks it before cleaning closed
 	// connections in Stmt.css.
@@ -791,27 +795,38 @@ func (db *DB) conn(strategy connReuseStrategy) (*driverConn, error) {
 
 	// Out of free connections or we were asked not to use one.  If we're not
 	// allowed to open any more connections, make a request and wait.
+	log.Warnf("freeconn status: opennum :%d, maxOpen :%d", db.numOpen, db.maxOpen)
 	if db.maxOpen > 0 && db.numOpen >= db.maxOpen {
 		// Make the connRequest channel. It's buffered so that the
 		// connectionOpener doesn't block while waiting for the req to be read.
 		req := make(chan connRequest, 1)
 		db.connRequests = append(db.connRequests, req)
 		db.mu.Unlock()
-		log.Warn("the conn is Ful!,wait for conn free", db.Dsn())
+
+		db.BlockNum += 1
+		log.Warn("%s connpool:Warning the conn is Ful!,wait for conn free, current BlockNum is %d", db.DbName, db.BlockNum)
 		// ret := <-req
-		timeout := time.After(time.Second * time.Duration(connReqTimeOut))
-		select {
-		case ret := <-req:
-			if ret.err == nil {
-				ret.conn.lastActiveTime = time.Now()
-				return ret.conn, ret.err
-			}
-
-		case <-timeout:
-			log.Warnf("freeconn status: opennum :%d, maxOpen :%d", db.numOpen, db.maxOpen)
-			return nil, errConnPoolTimeOut
-
+		ret := <-req
+		if ret.err == nil {
+			ret.conn.lastActiveTime = time.Now()
 		}
+		// time out has some problem to rasie conn in the queue drop
+		// timeout := time.After(time.Second * time.Duration(connReqTimeOut))
+		// select {
+		// case ret := <-req:
+		// 	if ret.err == nil {
+		// 		ret.conn.lastActiveTime = time.Now()
+		// 		return ret.conn, ret.err
+		// 	}
+
+		// case <-timeout:
+		// 	log.Warnf("freeconn status: opennum :%d, maxOpen :%d", db.numOpen, db.maxOpen)
+		// 	return nil, errConnPoolTimeOut
+
+		// }
+		db.BlockNum -= 1
+		log.Warn("%s connpool:goruntine release ,current BlockNum is %d", db.DbName, db.BlockNum)
+		return ret.conn, ret.err
 
 	}
 
@@ -907,6 +922,7 @@ func (db *DB) putConn(dc *driverConn, err error) {
 		// Since the conn is considered bad and is being discarded, treat it
 		// as closed. Don't decrement the open count here, finalClose will
 		// take care of that.
+		log.Debug("putconn err,ErrBadConn make new insted")
 		db.maybeOpenNewConnections()
 		db.mu.Unlock()
 		dc.Close()
@@ -1334,7 +1350,20 @@ func (tx *Tx) close() {
 	tx.dc = nil
 	tx.txi = nil
 }
+func (tx *Tx) PutConn(err error) {
+	if tx.done {
+		log.Warnf("tx double putconn")
+	}
+	tx.done = true
+	// tx.db.putConnDBLocked(dc *driverConn, err error)
 
+	if err == driver.ErrBadConn {
+		log.Debugf("Putconn err ,can;t reused conn ,got a new conn,for reason:%s", err)
+	}
+	tx.db.putConn(tx.dc, err)
+	tx.dc = nil
+	tx.txi = nil
+}
 func (tx *Tx) grabConn() (*driverConn, error) {
 	if tx.done {
 		return nil, ErrTxDone
@@ -1502,7 +1531,7 @@ func (tx *Tx) Exec(query string, args ...interface{}) (Result, error) {
 		dc.Unlock()
 		if err != nil && err != driver.ErrSkip {
 			if _, ok := err.(MySQLWarnings); !ok {
-				log.Debugf("Got Tx Error: %s", err)
+				log.Debugf("Got Tx Error: %s,when query %s", err, query)
 				return nil, err
 			}
 
