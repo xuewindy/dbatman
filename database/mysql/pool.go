@@ -827,7 +827,6 @@ func (db *DB) conn(strategy connReuseStrategy) (*driverConn, error) {
 		db.BlockNum -= 1
 		log.Warn("%s connpool:goruntine release ,current BlockNum is %d", db.DbName, db.BlockNum)
 		return ret.conn, ret.err
-
 	}
 
 	db.numOpen++ // optimistically
