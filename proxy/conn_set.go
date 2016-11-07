@@ -45,15 +45,19 @@ func (c *Session) clearAutoCommitTx() {
 		log.Warnf("sessionid %d : clear autcomit err,for nil pointer", c.sessionId)
 		return
 	}
-
-	_, err = c.bc.tx.Exec("set autocommit = 1")
-	// don;t need to put conn back
+	err = c.handleClearAutoCommit()
 	if err != nil {
 		log.Warnf("session id :%d,clear autocommit err for %s", c.sessionId, err)
 	}
+
+	// _, err = c.bc.tx.Exec("set autocommit = 1")
+	// don;t need to put conn back
+	// if err != nil {
+	// log.Warnf("session id :%d,clear autocommit err for %s", c.sessionId, err)
+	// }
 	//put back the conn
-	c.bc.tx.PutConn(err)
-	c.bc.tx = nil
+	// c.bc.tx.PutConn(err)
+	// c.bc.tx = nil
 
 	c.fc.XORStatus(uint16(StatusInAutocommit))
 	c.fc.AndStatus(^uint16(StatusInTrans))

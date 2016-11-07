@@ -1,6 +1,10 @@
 package proxy
 
-import . "github.com/bytedance/dbatman/database/mysql"
+import (
+	"errors"
+
+	. "github.com/bytedance/dbatman/database/mysql"
+)
 
 func (c *Session) isInTransaction() bool {
 	return c.fc.Status()&uint16(StatusInTrans) > 0
@@ -13,6 +17,8 @@ func (c *Session) isAutoCommit() bool {
 func (c *Session) handleBegin() error {
 
 	// We already in transaction
+	// if not in default tx isolation
+	// pass the status to the driver layer
 	if c.isInTransaction() {
 		return c.fc.WriteOK(nil)
 	}
@@ -40,8 +46,6 @@ func (c *Session) handleCommit() (err error) {
 		}
 	}()
 
-	// fmt.Println("commit")
-	// fmt.Println("this is a autocommit tx:", !c.isAutoCommit())
 	if err := c.bc.commit(c.isAutoCommit()); err != nil {
 		return c.handleMySQLError(err)
 	} else {
@@ -49,6 +53,24 @@ func (c *Session) handleCommit() (err error) {
 	}
 }
 
+//this func clear the proxy -> db conn autocommit status
+//dont need to communicate with front client
+func (c *Session) handleClearAutoCommit() error {
+	if !c.isInTransaction() {
+		// return c.fc.WriteOK(nil)
+		return errors.New("autocommit status err,not in transaction status")
+
+	}
+	if c.isAutoCommit() {
+		return errors.New("autocommit status err,not in autocommit status")
+
+	}
+	if err := c.bc.clearAutoCommit(); err != nil {
+		// return c.handleMySQLError(err)
+		return err
+	}
+	return nil
+}
 func (c *Session) handleRollback() (err error) {
 	if !c.isInTransaction() {
 		return c.fc.WriteOK(nil)

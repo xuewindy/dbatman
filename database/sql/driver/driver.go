@@ -219,6 +219,7 @@ type Rows interface {
 type Tx interface {
 	Commit() error
 	Rollback() error
+	ClearAutoCommit() error
 }
 
 // RowsAffected implements Result for an INSERT or UPDATE operation

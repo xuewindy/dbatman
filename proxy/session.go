@@ -97,6 +97,7 @@ func (session *Session) Run() error {
 		}
 
 		if err := session.dispatch(data); err != nil {
+			//this kind of err  will destory the conn and can;t reused
 			if err == driver.ErrBadConn {
 				// TODO handle error
 			}
