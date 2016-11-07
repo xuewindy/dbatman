@@ -73,6 +73,42 @@ func (c *Session) handleSetAutoCommit(val parser.IExpr) error {
 	}
 
 	switch value := stmt.Expr.(type) {
+	case parser.BoolVal:
+		//same as NumVal
+		// var a bool = bool(parser.BoolVal)
+
+		// var b bool = true
+		if value == true {
+			//
+			if c.isAutoCommit() {
+				return nil
+			}
+
+			//inply the tx  cleanUp step after last query c.handleOtherSet(stmt, sql)
+			c.autoCommit = 1 //indicate 0 -> 1
+			//TODO when previous handle error need
+
+			log.Debug("autocommit is set")
+		} else {
+			// indicate a transection
+			//current is autocommit = true  do nothing
+			if !c.isAutoCommit() {
+				return nil
+			}
+			c.fc.AndStatus(^uint16(StatusInAutocommit))
+			////atuocommit  1->0 start a transection
+			err := c.bc.begin(c)
+			if err != nil {
+				log.Debug(err)
+				c.fc.XORStatus(uint16(StatusInAutocommit))
+				return nil
+			}
+			c.fc.XORStatus(uint16(StatusInTrans))
+			c.autoCommit = 2 // indicate 1 -> zero
+			// log.Debug("start a transection")
+			// log.Debug("auto commit is unset")
+
+		}
 	case parser.NumVal:
 		if i, err := value.ParseInt(); err != nil {
 			return err
@@ -122,7 +158,8 @@ func (c *Session) handleSetAutoCommit(val parser.IExpr) error {
 			return fmt.Errorf("Variable 'autocommit' can't be set to the value of '%s'", us)
 		}
 	default:
-		return fmt.Errorf("set autocommit error, value type is %T", val)
+		// fmt.Println()
+		return fmt.Errorf("set autocommit error, value type is %T", val, value)
 	}
 
 	return nil

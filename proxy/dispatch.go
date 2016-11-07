@@ -25,9 +25,9 @@ import (
 )
 
 func (session *Session) dispatch(data []byte) (err error) {
+	logLevel := 3
 	cmd := data[0]
 	data = data[1:]
-	cluster.DoMertics(3)
 	defer func() {
 		flush_error := session.fc.Flush()
 		if err == nil {
@@ -63,6 +63,11 @@ func (session *Session) dispatch(data []byte) (err error) {
 		log.Warnf(msg)
 		err = mysql.NewDefaultError(mysql.ER_UNKNOWN_ERROR, msg)
 	}
+	//write back mertics
+	if err != nil {
+		logLevel = 6
+	}
+	cluster.DoDbMertics(logLevel, session.DbName)
 
 	return
 }
@@ -82,6 +87,7 @@ func (session *Session) useDB(dbName string) error {
 	// log.Info("use db: ", dbName)
 	// log.Info("transfer db", proceDbName(db))
 	db := proceDbName(dbName)
+	session.DbName = dbName
 	if session.cluster != nil {
 		if session.cluster.DBName != db {
 			// log.Debug("er1,:", session.cluster.DBName)
@@ -179,7 +185,7 @@ func (session *Session) writeRows(rs mysql.Rows) error {
 }
 
 func (session *Session) handleMySQLError(e error) error {
-
+	cluster.DoDbMertics(5, session.DbName)
 	switch inst := e.(type) {
 	case *mysql.MySQLError:
 		session.fc.WriteError(inst)

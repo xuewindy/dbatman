@@ -47,6 +47,8 @@ type Session struct {
 	txIsolationStmt  string
 	txIsolationInDef bool //is the tx isolation level in dafault?
 
+	DbName string
+
 	closed bool
 
 	// lastcmd uint8
@@ -64,6 +66,7 @@ func (s *Server) newSession(conn net.Conn) *Session {
 	session.cliAddr = strings.Split(conn.RemoteAddr().String(), ":")[0]
 	session.sessionId = id
 	session.txIsolationInDef = true
+	session.DbName = ""
 	session.fc = NewMySQLServerConn(session, conn)
 	//session.lastcmd = ComQuit
 	log.Info("start new session", session.sessionId)
