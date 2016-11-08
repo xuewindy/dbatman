@@ -49,7 +49,7 @@ func (session *Session) dispatch(data []byte) (err error) {
 	case mysql.ComFieldList:
 		err = session.handleFieldList(data)
 	case mysql.ComStmtPrepare:
-		err = session.handleComStmtPrepare(hack.String(data))
+		err = session.handleComStmtPrepare(string(data))
 	case mysql.ComStmtExecute:
 		err = session.handleComStmtExecute(data)
 	case mysql.ComStmtClose:
