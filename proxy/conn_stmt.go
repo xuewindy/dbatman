@@ -1,264 +1,253 @@
 package proxy
 
-import (
-	"encoding/binary"
-	"fmt"
-	"strconv"
+// func (c *Session) handleComStmtPrepare(sqlstmt string) error {
+// 	stmt, err := sqlparser.Parse(sqlstmt)
+// 	log.Infof("session %d: %s", c.sessionId, sqlstmt)
+// 	if err != nil {
 
-	"github.com/bytedance/dbatman/database/mysql"
-	"github.com/bytedance/dbatman/database/sql/driver"
-	"github.com/bytedance/dbatman/parser"
-	"github.com/ngaut/log"
-)
+// 		log.Warningf(`parse sql "%s" error "%s"`, sqlstmt, err.Error())
+// 		return c.handleMySQLError(
+// 			mysql.NewDefaultError(mysql.ER_SYNTAX_ERROR, err.Error()))
+// 	}
 
-func (c *Session) handleComStmtPrepare(sqlstmt string) error {
-	stmt, err := parser.Parse(sqlstmt)
-	log.Infof("session %d: %s", c.sessionId, sqlstmt)
-	if err != nil {
+// 	// Only a few statements supported by prepare statements
+// 	// http://dev.mysql.com/worklog/task/?id=2871
+// 	switch v := stmt.(type) {
+// 	case sqlparser.Select, *sqlparser.Insert, *sqlparser.Update, *sqlparser.Delete,
+// 		*sqlparser.Replace,
+// 		sqlparser.IDDLStatement,
+// 		*sqlparser.ShowTables,
+// 		*sqlparser.ShowColumns,
+// 		*sqlparser.ShowVariables,
+// 		*sqlparser.ShowIndex,
+// 		*sqlparser.Set,
+// 		*sqlparser.DescribeTable,
+// 		*sqlparser.Do:
+// 		return c.prepare(v, sqlstmt)
+// 	default:
+// 		log.Warnf("session %d :statement %T[%s] not support prepare ops", c.sessionId, stmt, sqlstmt)
+// 		return c.handleMySQLError(
+// 			mysql.NewDefaultError(mysql.ER_UNSUPPORTED_PS))
+// 	}
+// }
 
-		log.Warningf(`parse sql "%s" error "%s"`, sqlstmt, err.Error())
-		return c.handleMySQLError(
-			mysql.NewDefaultError(mysql.ER_SYNTAX_ERROR, err.Error()))
-	}
+// func (session *Session) prepare(istmt sqlparser.IStatement, sqlstmt string) error {
+// 	if err := session.checkDB(istmt); err != nil {
+// 		log.Debugf("check db error: %s", err.Error())
+// 		return err
+// 	}
 
-	// Only a few statements supported by prepare statements
-	// http://dev.mysql.com/worklog/task/?id=2871
-	switch v := stmt.(type) {
-	case parser.ISelect, *parser.Insert, *parser.Update, *parser.Delete,
-		*parser.Replace,
-		parser.IDDLStatement,
-		*parser.ShowTables,
-		*parser.ShowColumns,
-		*parser.ShowVariables,
-		*parser.ShowIndex,
-		*parser.Set,
-		*parser.DescribeTable,
-		*parser.Do:
-		return c.prepare(v, sqlstmt)
-	default:
-		log.Warnf("session %d :statement %T[%s] not support prepare ops", c.sessionId, stmt, sqlstmt)
-		return c.handleMySQLError(
-			mysql.NewDefaultError(mysql.ER_UNSUPPORTED_PS))
-	}
-}
+// 	isread := false
 
-func (session *Session) prepare(istmt parser.IStatement, sqlstmt string) error {
-	if err := session.checkDB(istmt); err != nil {
-		log.Debugf("check db error: %s", err.Error())
-		return err
-	}
+// 	if s, ok := istmt.(sqlparser.ISelect); ok {
+// 		isread = !s.IsLocked()
+// 	}
 
-	isread := false
+// 	if session.isInTransaction() || !session.isAutoCommit() {
+// 		isread = false
+// 	}
 
-	if s, ok := istmt.(parser.ISelect); ok {
-		isread = !s.IsLocked()
-	}
+// 	stmt, err := session.Executor(isread).Prepare(sqlstmt)
+// 	// TODO here should handler error
+// 	if err != nil {
+// 		return session.handleMySQLError(err)
+// 	}
 
-	if session.isInTransaction() || !session.isAutoCommit() {
-		isread = false
-	}
+// 	//	record the sql
+// 	stmt.SQL = istmt
 
-	stmt, err := session.Executor(isread).Prepare(sqlstmt)
-	// TODO here should handler error
-	if err != nil {
-		return session.handleMySQLError(err)
-	}
+// 	// TODO duplicate
+// 	session.bc.stmts[stmt.ID] = stmt
 
-	//	record the sql
-	stmt.SQL = istmt
+// 	return session.writePrepareResult(stmt)
+// }
 
-	// TODO duplicate
-	session.bc.stmts[stmt.ID] = stmt
+// func (session *Session) writePrepareResult(stmt *mysql.Stmt) error {
 
-	return session.writePrepareResult(stmt)
-}
+// 	colen := len(stmt.Columns)
+// 	paramlen := len(stmt.Params)
 
-func (session *Session) writePrepareResult(stmt *mysql.Stmt) error {
+// 	// Prepare Header
+// 	header := make([]byte, mysql.PacketHeaderLen, 12+mysql.PacketHeaderLen)
 
-	colen := len(stmt.Columns)
-	paramlen := len(stmt.Params)
+// 	// OK Status
+// 	header = append(header, 0)
+// 	header = append(header, byte(stmt.ID), byte(stmt.ID>>8), byte(stmt.ID>>16), byte(stmt.ID>>24))
 
-	// Prepare Header
-	header := make([]byte, mysql.PacketHeaderLen, 12+mysql.PacketHeaderLen)
+// 	header = append(header, byte(colen), byte(colen>>8))
+// 	header = append(header, byte(paramlen), byte(paramlen>>8))
 
-	// OK Status
-	header = append(header, 0)
-	header = append(header, byte(stmt.ID), byte(stmt.ID>>8), byte(stmt.ID>>16), byte(stmt.ID>>24))
+// 	// reserved 00
+// 	header = append(header, 0)
 
-	header = append(header, byte(colen), byte(colen>>8))
-	header = append(header, byte(paramlen), byte(paramlen>>8))
+// 	// warning count 00
+// 	// TODO
+// 	header = append(header, 0, 0)
 
-	// reserved 00
-	header = append(header, 0)
+// 	if err := session.fc.WritePacket(header); err != nil {
+// 		return session.handleMySQLError(err)
+// 	}
 
-	// warning count 00
-	// TODO
-	header = append(header, 0, 0)
+// 	if paramlen > 0 {
+// 		for _, p := range stmt.Params {
+// 			if err := session.fc.WritePacket(p); err != nil {
+// 				return session.handleMySQLError(err)
+// 			}
+// 		}
 
-	if err := session.fc.WritePacket(header); err != nil {
-		return session.handleMySQLError(err)
-	}
+// 		if err := session.fc.WriteEOF(); err != nil {
+// 			return session.handleMySQLError(err)
+// 		}
 
-	if paramlen > 0 {
-		for _, p := range stmt.Params {
-			if err := session.fc.WritePacket(p); err != nil {
-				return session.handleMySQLError(err)
-			}
-		}
+// 	}
 
-		if err := session.fc.WriteEOF(); err != nil {
-			return session.handleMySQLError(err)
-		}
+// 	if colen > 0 {
+// 		for _, c := range stmt.Columns {
+// 			if err := session.fc.WritePacket(c); err != nil {
+// 				return session.handleMySQLError(err)
+// 			}
+// 		}
 
-	}
+// 		if err := session.fc.WriteEOF(); err != nil {
+// 			return session.handleMySQLError(err)
+// 		}
+// 	}
 
-	if colen > 0 {
-		for _, c := range stmt.Columns {
-			if err := session.fc.WritePacket(c); err != nil {
-				return session.handleMySQLError(err)
-			}
-		}
+// 	return nil
+// }
 
-		if err := session.fc.WriteEOF(); err != nil {
-			return session.handleMySQLError(err)
-		}
-	}
+// func (session *Session) handleComStmtExecute(data []byte) error {
 
-	return nil
-}
+// 	if len(data) < 9 {
+// 		return session.handleMySQLError(mysql.ErrMalformPkt)
+// 	}
 
-func (session *Session) handleComStmtExecute(data []byte) error {
+// 	pos := 0
+// 	id := binary.LittleEndian.Uint32(data[0:4])
+// 	pos += 4
 
-	if len(data) < 9 {
-		return session.handleMySQLError(mysql.ErrMalformPkt)
-	}
+// 	stmt, ok := session.bc.stmts[id]
+// 	if !ok {
+// 		return mysql.NewDefaultError(mysql.ER_UNKNOWN_STMT_HANDLER,
+// 			strconv.FormatUint(uint64(id), 10), "stmt_execute")
+// 	}
 
-	pos := 0
-	id := binary.LittleEndian.Uint32(data[0:4])
-	pos += 4
+// 	flag := data[pos]
+// 	pos++
 
-	stmt, ok := session.bc.stmts[id]
-	if !ok {
-		return mysql.NewDefaultError(mysql.ER_UNKNOWN_STMT_HANDLER,
-			strconv.FormatUint(uint64(id), 10), "stmt_execute")
-	}
+// 	//now we only support CURSOR_TYPE_NO_CURSOR flag
+// 	if flag != 0 {
+// 		return mysql.NewDefaultError(mysql.ER_UNKNOWN_ERROR, fmt.Sprintf("unsupported flag %d", flag))
+// 	}
 
-	flag := data[pos]
-	pos++
+// 	//skip iteration-count, always 1
+// 	pos += 4
 
-	//now we only support CURSOR_TYPE_NO_CURSOR flag
-	if flag != 0 {
-		return mysql.NewDefaultError(mysql.ER_UNKNOWN_ERROR, fmt.Sprintf("unsupported flag %d", flag))
-	}
+// 	var err error
+// 	switch stmt.SQL.(type) {
+// 	case sqlparser.ISelect,
+// 		*sqlparser.ShowTables,
+// 		*sqlparser.ShowVariables,
+// 		*sqlparser.ShowColumns,
+// 		*sqlparser.ShowIndex,
+// 		*sqlparser.DescribeTable:
+// 		err = session.handleStmtQuery(stmt, data[pos:])
+// 	default:
+// 		err = session.handleStmtExec(stmt, data[pos:])
+// 	}
 
-	//skip iteration-count, always 1
-	pos += 4
+// 	return err
+// }
 
-	var err error
-	switch stmt.SQL.(type) {
-	case parser.ISelect,
-		*parser.ShowTables,
-		*parser.ShowVariables,
-		*parser.ShowColumns,
-		*parser.ShowIndex,
-		*parser.DescribeTable:
-		err = session.handleStmtQuery(stmt, data[pos:])
-	default:
-		err = session.handleStmtExec(stmt, data[pos:])
-	}
+// func (session *Session) handleStmtExec(stmt *mysql.Stmt, data []byte) error {
 
-	return err
-}
+// 	var rs mysql.Result
+// 	var err error
 
-func (session *Session) handleStmtExec(stmt *mysql.Stmt, data []byte) error {
+// 	if len(data) > 0 {
+// 		rs, err = stmt.Exec(driver.RawStmtParams(data))
+// 	} else {
+// 		rs, err = stmt.Exec()
+// 	}
 
-	var rs mysql.Result
-	var err error
+// 	if err != nil {
+// 		return session.handleMySQLError(err)
+// 	}
 
-	if len(data) > 0 {
-		rs, err = stmt.Exec(driver.RawStmtParams(data))
-	} else {
-		rs, err = stmt.Exec()
-	}
+// 	return session.fc.WriteOK(rs)
+// }
 
-	if err != nil {
-		return session.handleMySQLError(err)
-	}
+// func (session *Session) handleStmtQuery(stmt *mysql.Stmt, data []byte) error {
+// 	var rows mysql.Rows
+// 	var err error
 
-	return session.fc.WriteOK(rs)
-}
+// 	if len(data) > 0 {
+// 		rows, err = stmt.Query(driver.RawStmtParams(data))
+// 	} else {
+// 		rows, err = stmt.Query()
+// 	}
 
-func (session *Session) handleStmtQuery(stmt *mysql.Stmt, data []byte) error {
-	var rows mysql.Rows
-	var err error
+// 	if err != nil {
+// 		return session.handleMySQLError(err)
+// 	}
 
-	if len(data) > 0 {
-		rows, err = stmt.Query(driver.RawStmtParams(data))
-	} else {
-		rows, err = stmt.Query()
-	}
+// 	return session.writeRows(rows)
+// }
 
-	if err != nil {
-		return session.handleMySQLError(err)
-	}
+// func (session *Session) handleComStmtSendLongData(data []byte) error {
+// 	if len(data) < 6 {
+// 		return session.handleMySQLError(mysql.ErrMalformPkt)
+// 	}
 
-	return session.writeRows(rows)
-}
+// 	id := binary.LittleEndian.Uint32(data[0:4])
 
-func (session *Session) handleComStmtSendLongData(data []byte) error {
-	if len(data) < 6 {
-		return session.handleMySQLError(mysql.ErrMalformPkt)
-	}
+// 	stmt, ok := session.bc.stmts[id]
+// 	if !ok {
+// 		return mysql.NewDefaultError(mysql.ER_UNKNOWN_STMT_HANDLER,
+// 			strconv.FormatUint(uint64(id), 10), "stmt_send_longdata")
+// 	}
 
-	id := binary.LittleEndian.Uint32(data[0:4])
+// 	paramId := binary.LittleEndian.Uint16(data[4:6])
+// 	if paramId >= uint16(len(stmt.Params)) {
+// 		return mysql.NewDefaultError(mysql.ER_WRONG_ARGUMENTS, "stmt_send_longdata")
+// 	}
 
-	stmt, ok := session.bc.stmts[id]
-	if !ok {
-		return mysql.NewDefaultError(mysql.ER_UNKNOWN_STMT_HANDLER,
-			strconv.FormatUint(uint64(id), 10), "stmt_send_longdata")
-	}
+// 	stmt.SendLongData(int(paramId), data[6:])
+// 	return nil
+// }
 
-	paramId := binary.LittleEndian.Uint16(data[4:6])
-	if paramId >= uint16(len(stmt.Params)) {
-		return mysql.NewDefaultError(mysql.ER_WRONG_ARGUMENTS, "stmt_send_longdata")
-	}
+// func (session *Session) handleComStmtReset(data []byte) error {
+// 	if len(data) < 4 {
+// 		return session.handleMySQLError(mysql.ErrMalformPkt)
+// 	}
 
-	stmt.SendLongData(int(paramId), data[6:])
-	return nil
-}
+// 	id := binary.LittleEndian.Uint32(data[0:4])
 
-func (session *Session) handleComStmtReset(data []byte) error {
-	if len(data) < 4 {
-		return session.handleMySQLError(mysql.ErrMalformPkt)
-	}
+// 	stmt, ok := session.bc.stmts[id]
+// 	if !ok {
+// 		return mysql.NewDefaultError(mysql.ER_UNKNOWN_STMT_HANDLER,
+// 			strconv.FormatUint(uint64(id), 10), "stmt_reset")
+// 	}
 
-	id := binary.LittleEndian.Uint32(data[0:4])
+// 	if rs, err := stmt.Reset(); err != nil {
+// 		return session.handleMySQLError(err)
+// 	} else {
+// 		return session.fc.WriteOK(rs)
+// 	}
+// }
 
-	stmt, ok := session.bc.stmts[id]
-	if !ok {
-		return mysql.NewDefaultError(mysql.ER_UNKNOWN_STMT_HANDLER,
-			strconv.FormatUint(uint64(id), 10), "stmt_reset")
-	}
+// func (c *Session) handleComStmtClose(data []byte) error {
+// 	if len(data) < 4 {
+// 		return nil
+// 	}
 
-	if rs, err := stmt.Reset(); err != nil {
-		return session.handleMySQLError(err)
-	} else {
-		return session.fc.WriteOK(rs)
-	}
-}
+// 	id := binary.LittleEndian.Uint32(data[0:4])
 
-func (c *Session) handleComStmtClose(data []byte) error {
-	if len(data) < 4 {
-		return nil
-	}
+// 	if cstmt, ok := c.bc.stmts[id]; ok {
+// 		cstmt.Close()
+// 	}
 
-	id := binary.LittleEndian.Uint32(data[0:4])
+// 	delete(c.bc.stmts, id)
 
-	if cstmt, ok := c.bc.stmts[id]; ok {
-		cstmt.Close()
-	}
-
-	delete(c.bc.stmts, id)
-
-	return nil
-}
+// 	return nil
+// }

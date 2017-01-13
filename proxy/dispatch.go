@@ -46,18 +46,18 @@ func (session *Session) dispatch(data []byte) (err error) {
 		} else {
 			err = session.fc.WriteOK(nil)
 		}
-	case mysql.ComFieldList:
-		err = session.handleFieldList(data)
-	case mysql.ComStmtPrepare:
-		err = session.handleComStmtPrepare(hack.String(data))
-	case mysql.ComStmtExecute:
-		err = session.handleComStmtExecute(data)
-	case mysql.ComStmtClose:
-		err = session.handleComStmtClose(data)
-	case mysql.ComStmtSendLongData:
-		err = session.handleComStmtSendLongData(data)
-	case mysql.ComStmtReset:
-		err = session.handleComStmtReset(data)
+	// case mysql.ComFieldList:
+	// 	err = session.handleFieldList(data)
+	// case mysql.ComStmtPrepare:
+	// 	err = session.handleComStmtPrepare(hack.String(data))
+	// case mysql.ComStmtExecute:
+	// 	err = session.handleComStmtExecute(data)
+	// case mysql.ComStmtClose:
+	// 	err = session.handleComStmtClose(data)
+	// case mysql.ComStmtSendLongData:
+	// 	err = session.handleComStmtSendLongData(data)
+	// case mysql.ComStmtReset:
+	// 	err = session.handleComStmtReset(data)
 	default:
 		msg := fmt.Sprintf("command %d not supported now", cmd)
 		log.Warnf(msg)

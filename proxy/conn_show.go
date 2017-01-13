@@ -1,105 +1,96 @@
 package proxy
 
-import (
-	"bytes"
+// func (session *Session) handleShow(sqlstmt string, stmt sqlparser.IShow) error {
+// 	var err error
 
-	"github.com/bytedance/dbatman/database/mysql"
-	"github.com/bytedance/dbatman/hack"
-	"github.com/bytedance/dbatman/parser"
-	"github.com/ngaut/log"
-)
+// 	switch stmt.(type) {
+// 	case *sqlparser.ShowDatabases:
+// 		err = session.handleShowDatabases()
+// 	default:
+// 		err = session.handleQuery(stmt, sqlstmt)
+// 	}
 
-func (session *Session) handleShow(sqlstmt string, stmt parser.IShow) error {
-	var err error
+// 	if err != nil {
+// 		return session.handleMySQLError(err)
+// 	}
 
-	switch stmt.(type) {
-	case *parser.ShowDatabases:
-		err = session.handleShowDatabases()
-	default:
-		err = session.handleQuery(stmt, sqlstmt)
-	}
+// 	return nil
+// }
 
-	if err != nil {
-		return session.handleMySQLError(err)
-	}
+// func (session *Session) handleFieldList(data []byte) error {
+// 	index := bytes.IndexByte(data, 0x00)
+// 	table := string(data[0:index])
+// 	wildcard := string(data[index+1:])
 
-	return nil
-}
+// 	rs, err := session.bc.master.FieldList(table, wildcard)
+// 	// TODO here should handler error
+// 	if err != nil {
+// 		return session.handleMySQLError(err)
+// 	}
 
-func (session *Session) handleFieldList(data []byte) error {
-	index := bytes.IndexByte(data, 0x00)
-	table := string(data[0:index])
-	wildcard := string(data[index+1:])
+// 	defer rs.Close()
 
-	rs, err := session.bc.master.FieldList(table, wildcard)
-	// TODO here should handler error
-	if err != nil {
-		return session.handleMySQLError(err)
-	}
+// 	return session.writeFieldList(rs)
+// }
 
-	defer rs.Close()
+// func (session *Session) writeFieldList(rs mysql.Rows) error {
 
-	return session.writeFieldList(rs)
-}
+// 	cols, err := rs.ColumnPackets()
 
-func (session *Session) writeFieldList(rs mysql.Rows) error {
+// 	if err != nil {
+// 		return session.handleMySQLError(err)
+// 	}
 
-	cols, err := rs.ColumnPackets()
+// 	// Write Columns Packet
+// 	for _, col := range cols {
+// 		if err := session.fc.WritePacket(col); err != nil {
+// 			log.Debugf("write columns packet error %v", err)
+// 			return err
+// 		}
+// 	}
 
-	if err != nil {
-		return session.handleMySQLError(err)
-	}
+// 	// TODO Write a ok packet
+// 	if err = session.fc.WriteEOF(); err != nil {
+// 		return err
+// 	}
 
-	// Write Columns Packet
-	for _, col := range cols {
-		if err := session.fc.WritePacket(col); err != nil {
-			log.Debugf("write columns packet error %v", err)
-			return err
-		}
-	}
+// 	return nil
+// }
 
-	// TODO Write a ok packet
-	if err = session.fc.WriteEOF(); err != nil {
-		return err
-	}
+// func (session *Session) handleShowDatabases() error {
+// 	dbs := make([]interface{}, 0, 1)
+// 	dbs = append(dbs, session.user.DBName)
 
-	return nil
-}
+// 	if r, err := session.buildSimpleShowResultset(dbs, "Database"); err != nil {
+// 		return err
+// 	} else {
+// 		return session.writeRows(r)
+// 	}
+// }
 
-func (session *Session) handleShowDatabases() error {
-	dbs := make([]interface{}, 0, 1)
-	dbs = append(dbs, session.user.DBName)
+// func (session *Session) buildSimpleShowResultset(values []interface{}, name string) (mysql.Rows, error) {
 
-	if r, err := session.buildSimpleShowResultset(dbs, "Database"); err != nil {
-		return err
-	} else {
-		return session.writeRows(r)
-	}
-}
+// 	r := new(SimpleRows)
 
-func (session *Session) buildSimpleShowResultset(values []interface{}, name string) (mysql.Rows, error) {
+// 	r.Cols = []*mysql.MySQLField{
+// 		&mysql.MySQLField{
+// 			Name:      hack.Slice(name),
+// 			Charset:   uint16(session.fc.Collation()),
+// 			FieldType: mysql.FieldTypeVarString,
+// 		},
+// 	}
 
-	r := new(SimpleRows)
+// 	var row []byte
+// 	var err error
 
-	r.Cols = []*mysql.MySQLField{
-		&mysql.MySQLField{
-			Name:      hack.Slice(name),
-			Charset:   uint16(session.fc.Collation()),
-			FieldType: mysql.FieldTypeVarString,
-		},
-	}
+// 	for _, value := range values {
+// 		row, err = formatValue(value)
+// 		if err != nil {
+// 			return nil, err
+// 		}
 
-	var row []byte
-	var err error
+// 		r.Rows = append(r.Rows, mysql.AppendLengthEncodedString(make([]byte, 0, len(row)+9), row))
+// 	}
 
-	for _, value := range values {
-		row, err = formatValue(value)
-		if err != nil {
-			return nil, err
-		}
-
-		r.Rows = append(r.Rows, mysql.AppendLengthEncodedString(make([]byte, 0, len(row)+9), row))
-	}
-
-	return r, nil
-}
+// 	return r, nil
+// }

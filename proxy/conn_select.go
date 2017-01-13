@@ -1,24 +1,20 @@
 package proxy
 
-import (
-	"github.com/bytedance/dbatman/parser"
-	"github.com/ngaut/log"
-)
+import "github.com/bytedance/dbatman/sqlparser"
 
-func (session *Session) handleQuery(stmt parser.IStatement, sqlstmt string) error {
+func (session *Session) handleQuery(stmt sqlparser.Statement, sqlstmt string) error {
 
-	if err := session.checkDB(stmt); err != nil {
-		log.Debugf("check db error: %s", err.Error())
-		return err
-	}
-
+	// if err := session.checkDB(stmt); err != nil {
+	// 	log.Debugf("check db error: %s", err.Error())
+	// 	return err
+	// }
 	isread := false
 
-	if s, ok := stmt.(parser.ISelect); ok {
-		isread = !s.IsLocked()
-	} else if _, sok := stmt.(parser.IShow); sok {
-		isread = true
-	}
+	// if s, ok := stmt.(sqlparser.Select); ok {
+	// 	isread = !s.IsLocked()
+	// } else if _, sok := stmt.(sqlparser.Show); sok {
+	// 	isread = true
+	// }
 
 	rs, err := session.Executor(isread).Query(sqlstmt)
 	// TODO here should handler error

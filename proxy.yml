@@ -1,0 +1,49 @@
+global:
+  port: 3311
+  manage_port: 3308
+  max_connections: 10
+  log_filename: ./log/dbatman.log
+  log_level: 31
+  log_maxsize: 1024
+  log_query_min_time: 0
+  client_timeout: 1800
+  server_timeout: 1800
+  write_time_interval: 10
+  rate: 10000 # 服务器流量限制 还没有激活
+  burst: 2000 # 服务器流量限制 还没有激活
+  conf_autoload: 1
+  authip_active: false
+  enable_metrics: false
+  auth_ips:
+    - 10.4.64.1
+    - 10.4.64.2
+clusters:
+    spider_cluster:
+        master:
+            host: 10.4.16.18
+            port: 3306
+            username: test_xuegeng_w
+            password: test
+            dbname: test_xuegeng
+            charset: utf8mb4
+            max_connections: 1000
+            max_connection_pool_size: 10
+            connect_timeout: 4000
+            time_reconnect_interval: 100
+            weight: 1
+users:
+  root:
+    username: root
+    password: 1
+    max_connections: 10000
+    min_connections: 100
+    dbname: test_xuegeng
+    charset: utf8mb4
+    cluster_name: spider_cluster
+    sqlfilter :
+    auth_ips:
+      - 10.1.1.1
+      - 10.1.1.2
+    black_list_ips:
+      - 10.1.1.3
+      - 10.1.1.4

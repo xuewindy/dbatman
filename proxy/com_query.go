@@ -6,8 +6,7 @@ import (
 	"time"
 
 	. "github.com/bytedance/dbatman/database/mysql"
-	"github.com/bytedance/dbatman/hack"
-	"github.com/bytedance/dbatman/parser"
+	"github.com/bytedance/dbatman/sqlparser"
 	"github.com/ngaut/log"
 	"github.com/percona/go-mysql/query"
 )
@@ -26,63 +25,63 @@ func (c *Session) comQuery(sqlstmt string) error {
 	// }
 	// c.updatefp(sqlstmt)
 	log.Infof("session %d: %s", c.sessionId, sqlstmt)
-	stmt, err := parser.Parse(sqlstmt)
+	stmt, err := sqlparser.Parse(sqlstmt)
 	if err != nil {
 		log.Warningf(`parse sql "%s" error "%s"`, sqlstmt, err.Error())
 		return c.handleMySQLError(
 			NewDefaultError(ER_SYNTAX_ERROR, err.Error()))
 	}
 	switch v := stmt.(type) {
-	case parser.ISelect:
+	case *sqlparser.Select:
 		return c.handleQuery(v, sqlstmt)
-	case *parser.Insert, *parser.Update, *parser.Delete, *parser.Replace:
+	case *sqlparser.Insert, *sqlparser.Update, *sqlparser.Delete, *sqlparser.Replace:
 		return c.handleExec(stmt, sqlstmt, false)
-	case *parser.Set:
+	case *sqlparser.Set:
 		return c.handleSet(v, sqlstmt)
-	case *parser.Begin, *parser.StartTrans:
+	case *sqlparser.Begin: // *sqlparser.StartTrans:
 		return c.handleBegin()
-	case *parser.Commit:
+	case *sqlparser.Commit:
 		return c.handleCommit()
-	case *parser.Rollback:
-		// log.Debug(hack.String(stmt.(*parser.Rollback).Point))
-		if len(stmt.(*parser.Rollback).Point) > 0 {
-			return c.handleExec(stmt, sqlstmt, false)
-		}
+	case *sqlparser.Rollback:
+		// log.Debug(hack.String(stmt.(*sqlparser.Rollback).Point))
+		// if len(stmt.(*sqlparser.Rollback).Point) > 0 {
+		// 	return c.handleExec(stmt, sqlstmt, false)
+		// }
 		return c.handleRollback()
-	case parser.IShow:
-		return c.handleShow(sqlstmt, v)
-	case parser.IDDLStatement:
-		return c.handleDDL(v, sqlstmt)
-	case *parser.Do, *parser.Call, *parser.FlushTables:
-		return c.handleExec(stmt, sqlstmt, false)
-		//add the describe table module
-	case *parser.DescribeTable, *parser.DescribeStmt:
-		return c.handleQuery(v, sqlstmt)
-	case *parser.Use:
+	// case sqlparser.IShow:
+	// 	return c.handleShow(sqlstmt, v)
+	// case sqlparser.IDDLStatement:
+	// 	return c.handleDDL(v, sqlstmt)
+	// case *sqlparser.Do, *sqlparser.Call, *sqlparser.FlushTables:
+	// 	return c.handleExec(stmt, sqlstmt, false)
+	//add the describe table module
+	// case *sqlparser.DescribeTable, *sqlparser.DescribeStmt:
+	// 	return c.handleQuery(v, sqlstmt)
+	case *sqlparser.UseDB:
 
-		if err := c.useDB(hack.String(stmt.(*parser.Use).DB)); err != nil {
+		if err := c.useDB(stmt.(*sqlparser.UseDB).DB); err != nil {
 			return c.handleMySQLError(err)
 		} else {
 			return c.fc.WriteOK(nil)
 		}
-	case *parser.SavePoint:
-		return c.handleExec(stmt, sqlstmt, false)
-		// return c.handleQuery(v, sqlstmt)
-	case *parser.SetTrans:
-		// log.Warnf("set tx iso level ")
-		t_sl := hack.Slice(sqlstmt)
-		tmp := make([]byte, len(t_sl))
-		copy(tmp, t_sl)
-		// log.Debug(sqlstmt, t_sl, tmp, len(t_sl))
-		c.txIsolationInDef = false
-		sql := hack.String(tmp)
-		// log.Debug(sql, len(sql))
-		c.txIsolationStmt = sql
-		// log.Warnf("set tx iso level finish  ")
-		if c.isInTransaction() {
-			return c.handleExec(stmt, sqlstmt, false)
-		}
-		return c.fc.WriteOK(nil)
+	// case *sqlparser.SavePoint:
+	// 	return c.handleExec(stmt, sqlstmt, false)
+	// return c.handleQuery(v, sqlstmt)
+	// case *sqlparser.SetTrans:
+	// 	// log.Warnf("set tx iso level ")
+	// 	t_sl := hack.Slice(sqlstmt)
+	// 	tmp := make([]byte, len(t_sl))
+	// 	copy(tmp, t_sl)
+	// 	// log.Debug(sqlstmt, t_sl, tmp, len(t_sl))
+	// 	c.txIsolationInDef = false
+	// 	sql := hack.String(tmp)
+	// 	// log.Debug(sql, len(sql))
+	// 	c.txIsolationStmt = sql
+	// 	// log.Warnf("set tx iso level finish  ")
+	// 	if c.isInTransaction() {
+	// 		return c.handleExec(stmt, sqlstmt, false)
+	// 	}
+	// 	return c.fc.WriteOK(nil)
 	default:
 		log.Warnf("session %d : statement %T[%s] not support now", c.sessionId, stmt, sqlstmt)
 		err := errors.New("statement not support now")
@@ -103,17 +102,17 @@ func makeBindVars(args []interface{}) map[string]interface{} {
 	return bindVars
 }
 
-func (session *Session) handleExec(stmt parser.IStatement, sqlstmt string, isread bool) error {
+func (session *Session) handleExec(stmt sqlparser.Statement, sqlstmt string, isread bool) error {
 
-	if err := session.checkDB(stmt); err != nil {
-		return session.handleMySQLError(err)
-	}
+	// if err := session.checkDB(stmt); err != nil {
+	// 	return session.handleMySQLError(err)
+	// }
 
 	return session.exec(sqlstmt, isread)
 }
 
 // handleDDL process DDL Statements where
-func (session *Session) handleDDL(ddl parser.IDDLStatement, sqlstmt string) error {
+func (session *Session) handleDDL(ddl sqlparser.DDL, sqlstmt string) error {
 	if err := session.checkDB(ddl); err != nil {
 		return session.handleMySQLError(err)
 	}
@@ -123,23 +122,23 @@ func (session *Session) handleDDL(ddl parser.IDDLStatement, sqlstmt string) erro
 }
 
 // for a weak secure issue, we check the db in statement to protect wrong ops
-func (session *Session) checkDB(stmt parser.IStatement) error {
-	if hasSchemas, ok := stmt.(parser.IDDLSchemas); ok {
-		// check schemas to ensure a weak secure issue
-		schemas := hasSchemas.GetSchemas()
-		for _, s := range schemas {
-			if len(s) > 0 && s != session.cluster.DBName {
-				log.Warn("wrong here", session.user.Username,
-					session.fc.RemoteAddr().String(),
-					session.cluster.DBName)
-				NewDefaultError(
-					ER_DBACCESS_DENIED_ERROR,
-					session.user.Username,
-					session.fc.RemoteAddr().String(),
-					session.cluster.DBName)
-			}
-		}
-	}
+func (session *Session) checkDB(stmt sqlparser.DDL) error {
+	// if hasSchemas, ok := stmt.(*sqlparser.DDL); ok {
+	// 	// check schemas to ensure a weak secure issue
+	// 	schemas := hasSchemas.GetSchemas()
+	// 	for _, s := range schemas {
+	// 		if len(s) > 0 && s != session.cluster.DBName {
+	// 			log.Warn("wrong here", session.user.Username,
+	// 				session.fc.RemoteAddr().String(),
+	// 				session.cluster.DBName)
+	// 			NewDefaultError(
+	// 				ER_DBACCESS_DENIED_ERROR,
+	// 				session.user.Username,
+	// 				session.fc.RemoteAddr().String(),
+	// 				session.cluster.DBName)
+	// 		}
+	// 	}
+	// }
 
 	return nil
 }

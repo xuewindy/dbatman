@@ -107,7 +107,7 @@ type Conn interface {
 
 	// Begin starts and returns a new transaction.
 	// Begin() (Tx, error)
-	Begin(s SessionI) (Tx, error)
+	Begin() (Tx, error)
 
 	//IsBroken
 	IsBroken() bool
