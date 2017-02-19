@@ -25,6 +25,7 @@ import (
 	. "github.com/bytedance/dbatman/database/mysql"
 	"github.com/bytedance/dbatman/database/sql/driver"
 	"github.com/bytedance/dbatman/hack"
+	"github.com/bytedance/tmp/parser"
 	"github.com/ngaut/log"
 )
 
@@ -43,6 +44,7 @@ type Session struct {
 	autoCommit uint
 	sessionId  int64
 
+	sqlParserAst map[string]parser.IStatement // store all the query (select\update\insert\delete) opt of seesion group by fingerprint
 	//session status
 	txIsolationStmt  string
 	txIsolationInDef bool //is the tx isolation level in dafault?
@@ -66,6 +68,8 @@ func (s *Server) newSession(conn net.Conn) *Session {
 	session.sessionId = id
 	session.txIsolationInDef = true
 	session.fc = NewMySQLServerConn(session, conn)
+	session.sqlParserAst = make(map[string]parser.IStatement)
+
 	//session.lastcmd = ComQuit
 	log.Info("start new session", session.sessionId)
 	return session

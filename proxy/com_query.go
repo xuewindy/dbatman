@@ -3,6 +3,7 @@ package proxy
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/bytedance/dbatman/database/mysql"
@@ -26,7 +27,9 @@ func (c *Session) comQuery(sqlstmt string) error {
 	// }
 	// c.updatefp(sqlstmt)
 	log.Infof("session %d: %s", c.sessionId, sqlstmt)
-	stmt, err := parser.Parse(sqlstmt)
+	sqlFp := query.Fingerprint(sqlstmt)
+
+	stmt, err := c.getParserStmt(sqlFp, sqlstmt)
 	if err != nil {
 		log.Warningf(`parse sql "%s" error "%s"`, sqlstmt, err.Error())
 		return c.handleMySQLError(
@@ -91,6 +94,30 @@ func (c *Session) comQuery(sqlstmt string) error {
 	}
 
 	return nil
+}
+func (c *Session) getParserStmt(sqlPrintFinger string, sqlstmt string) (parser.IStatement, error) {
+	var err error
+	var stmt parser.IStatement
+	var ok bool
+	if strings.HasPrefix(sqlPrintFinger, "select") || strings.HasPrefix(sqlPrintFinger, "update") ||
+		strings.HasPrefix(sqlPrintFinger, "insert") {
+		stmt, ok = c.sqlParserAst[sqlPrintFinger]
+		if !ok {
+			// fmt.Printf("%s ast doesn;t  in the seesion's cache ,execute parser\n", sqlPrintFinger)
+			stmt, err = parser.Parse(sqlstmt)
+			if err != nil {
+				return nil, err
+			}
+			c.sqlParserAst[sqlPrintFinger] = stmt
+			return stmt, nil
+		}
+		// fmt.Printf("%s ast successed in cache from session \n", sqlPrintFinger)
+		return stmt, nil
+
+	} else { // use parser to make ast
+		// fmt.Printf("%s doesn't need to use cache ,execute paraser\n", sqlPrintFinger)
+		return parser.Parse(sqlstmt)
+	}
 }
 
 func makeBindVars(args []interface{}) map[string]interface{} {
