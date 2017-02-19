@@ -25,7 +25,7 @@ import (
 	. "github.com/bytedance/dbatman/database/mysql"
 	"github.com/bytedance/dbatman/database/sql/driver"
 	"github.com/bytedance/dbatman/hack"
-	"github.com/bytedance/tmp/parser"
+	"github.com/bytedance/dbatman/parser"
 	"github.com/ngaut/log"
 )
 
