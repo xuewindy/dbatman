@@ -1362,11 +1362,12 @@ func (tx *Tx) Commit(inAutoCommit bool) error {
 	}
 	tx.dc.Lock()
 	err := tx.txi.Commit()
-	// fmt.Println("poll commit err :", err)
 	tx.dc.Unlock()
-	if err != driver.ErrBadConn {
-		tx.closePrepared()
-		// fmt.Println("close  tx prepared")
+
+	if inAutoCommit { // when in autocommit
+		if err != driver.ErrBadConn {
+			tx.closePrepared()
+		}
 	}
 	return err
 }
@@ -1384,8 +1385,10 @@ func (tx *Tx) Rollback(inAutoCommit bool) error {
 	tx.dc.Lock()
 	err := tx.txi.Rollback()
 	tx.dc.Unlock()
-	if err != driver.ErrBadConn {
-		tx.closePrepared()
+	if inAutoCommit { // when in autocommit
+		if err != driver.ErrBadConn {
+			tx.closePrepared()
+		}
 	}
 	return err
 }
